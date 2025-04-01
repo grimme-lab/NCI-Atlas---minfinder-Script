@@ -33,3 +33,13 @@ Descripton of the script and its functionality:
                         each system for the reference and the method
       -nosub            If the method results are not in subdirectories        
       -help             Show this help message and exit
+
+**! DISCLAIMER ! **
+```
+The scipy package is required to be installed. If this is not the case alread you could for example create a new environment in the following way:
+mamba deactivate
+#check if were in `base` environment
+mamba create -n splines python=3.13
+mamba activate splines
+mamba install scipy
+```
