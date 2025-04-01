@@ -34,7 +34,7 @@ Descripton of the script and its functionality:
       -nosub            If the method results are not in subdirectories        
       -help             Show this help message and exit
 
-**! DISCLAIMER ! **
+**! DISCLAIMER !**
 
 The scipy package is required to be installed. If this is not the case alread you could for example create a new environment in the following way:
 
