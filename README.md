@@ -40,7 +40,7 @@ The scipy package is required to be installed. If this is not the case alread yo
 
 ```
 mamba deactivate
-#check if were in `base` environment
+#check if you are in `base` environment
 mamba create -n splines python=3.13
 mamba activate splines
 mamba install scipy
