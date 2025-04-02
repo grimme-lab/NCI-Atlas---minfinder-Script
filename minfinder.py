@@ -15,7 +15,6 @@ def print_help_page():
     Usage: python3 minfinder.py [method_name]
         or python3 minfinder.py ref 
         or python3 minfinder.py ref [method_name]
-        or python3 minfinder.py [method_name] -nosub 
 
     Description:
       This script evaluates the ".res" file and evaluates the given PES scan data (either of ther reference or of a given method to evaluate).
@@ -26,16 +25,15 @@ def print_help_page():
 
       If 'ref' is provided as the method, the script extracts reference minimum values from the ".res" file.
       Otherwise, it processes the method-specific directories that should lie as subdirectories in each system folder.
-      If the "-nosub" flag is given, the script does not look for subdirectories but just the energy files in the system folders.
       The script can ready 'energy' files and 'orca.out' files.
-      If you want to reduce the amount of systems to evalaute, make a reduced version of the ".res" file. (Make sure to backup your .res file)
+      If you want to reduce the amount of systems to evalaute, make a reduced version of the ".res" file.
+      Make sure to keep a copy of the original files)
 
     Options:
       method_name       Evaluate the given method (e.g. g-xtb, gfn2-xtb, ...)   --> Prinout: systemid intermol_dist_PES_min_method    [in angstrom]
       ref               Evaluate the minima of the reference method             --> Prinout: systemid intermol_dist_PES_min_reference [in angstrom]
       ref method_name   Returns the shortest intermolecular distance for        --> Prinout: intermol_dist_PES_min_reference intermol_dist_PES_min_method [in angstrom]
                         each system for the reference and the method
-      -nosub            If the method results are not in subdirectories        
       -help             Show this help message and exit
 
     """)
@@ -46,7 +44,7 @@ if "-help" in sys.argv or "--help" in sys.argv or "-h" in sys.argv:
 
 #---------------------------- EXTRACTING systemid, scaling factor and folder  ------------------------------------------------
 
-def find_reference_minimum(res_file=".res", method_name=None, use_subfolder=True):
+def find_reference_minimum(res_file=".res", method_name=None):
     if not os.path.exists(res_file):
         print(f"Error: '{res_file}' not found.")
         return {}, {}
@@ -62,6 +60,7 @@ def find_reference_minimum(res_file=".res", method_name=None, use_subfolder=True
             system_id_match = system_id_pattern.search(line)
             if system_id_match:
                 system_id = system_id_match.group(1)
+                #print(system_id)
                 scaling_factor_match = scaling_factor_pattern.search(line)
                 
                 if scaling_factor_match:
@@ -69,6 +68,7 @@ def find_reference_minimum(res_file=".res", method_name=None, use_subfolder=True
                     scaling_factor = normalize_scaling_factor(raw_scaling_factor)
                     
                     if scaling_factor is not None:
+                        #print(scaling_factor)
                         folder_match = folder_pattern.search(line)
                         if folder_match:
                             folder_str = folder_match.group(1)
@@ -76,13 +76,15 @@ def find_reference_minimum(res_file=".res", method_name=None, use_subfolder=True
                             
                             for folder in folders:
                                 folder = folder.strip()
+                                #print(system_id, scaling_factor, raw_scaling_factor, folder)
                                 
-                                # Check if the system_id and scaling_factor match the folder name
                                 if system_id in folder and (f"_{str(scaling_factor)}" in folder or f"_{str(raw_scaling_factor)}" in folder):
-                                    
+                                    #print(system_id, scaling_factor, folder)
+
                                     # Store folder data for scaling factor 1.0
                                     if scaling_factor == 1.0 and len(folders) == 3:
                                         folder_data[system_id] = tuple(folders)
+                                        #print(folder_data[system_id])
 
                                     if method_name == "ref":  # Extract energy from the last value in the line
                                         try:
@@ -90,28 +92,19 @@ def find_reference_minimum(res_file=".res", method_name=None, use_subfolder=True
                                             if system_id not in reference_data:
                                                 reference_data[system_id] = []
                                             reference_data[system_id].append((scaling_factor, energy))
+                                            #print(reference_data[system_id])
                                         except ValueError:
                                             print(f"Warning: Could not extract energy for system {system_id} in .res file")
                                     else:
-                                        # Adjust the method folder logic based on `use_subfolder`
-                                        if use_subfolder:
-                                            method_folder = os.path.join(str(folder), str(method_name))
-                                            #print(method_folder)
-                                        else:
-                                            method_folder = os.path.join(str(folder))  # Directly use the folder itself if no subfolder
-
-                                        #print(f"Looking in folder: {method_folder}")
-                                        
-                                        # Check if the directory exists
+                                        method_folder = os.path.join(str(folder), str(method_name))
                                         if os.path.isdir(method_folder):
-                                            energy = extract_energy(method_folder, method_name, use_subfolder)
+                                            energy = extract_energy(method_folder)
+                                            #print(energy)
                                             if energy is not None:
                                                 if system_id not in reference_data:
                                                     reference_data[system_id] = []
                                                 reference_data[system_id].append((scaling_factor, energy))
-                                        else:
-                                            print("The folder", method_folder,"does not exist. Exiting ...")
-                                            sys.exit()
+                                                #print(reference_data[system_id])
 
     return reference_data, folder_data
 
@@ -142,21 +135,14 @@ def normalize_scaling_factor(raw_value):
 
 #--------------------------------------- EXTRACT ENERGY --------- -----------------------------------------------
 
-def extract_energy(folder, method_name, use_subfolder=True):
-    """
-    Extract energy from the given folder.
+import os
 
-    Parameters:
-    - folder (str): The directory to look in.
-    - method_name (str): The method (e.g., "g-xtb").
-    - use_subfolder (bool): Whether to look inside method subfolders or directly in the folder.
-
-    Returns:
-    - float or None: Extracted energy value.
-    """
-    energy_file = os.path.join(folder, "energy")
+def extract_energy(folder):
     orca_out = os.path.join(folder, "orca.out")
-
+    energy_file = os.path.join(folder, "energy")
+    xtb_out = os.path.join(folder, "xtb.out")
+    
+    # Check for ORCA output
     if os.path.isfile(orca_out):
         with open(orca_out, "r") as f:
             for line in f:
@@ -166,6 +152,8 @@ def extract_energy(folder, method_name, use_subfolder=True):
                     except (IndexError, ValueError):
                         print(f"Warning: Could not extract energy from {orca_out}")
                         return None
+    
+    # Check for energy file
     elif os.path.isfile(energy_file):
         with open(energy_file, "r") as f:
             lines = f.readlines()
@@ -175,6 +163,18 @@ def extract_energy(folder, method_name, use_subfolder=True):
                 except (IndexError, ValueError):
                     print(f"Warning: Invalid energy value in {energy_file}")
                     return None
+    
+    # Check for xTB output
+    elif os.path.isfile(xtb_out):
+        with open(xtb_out, "r") as f:
+            for line in f:
+                if "| TOTAL ENERGY" in line:
+                    try:
+                        return float(line.split()[3])
+                    except (IndexError, ValueError):
+                        print(f"Warning: Could not extract energy from {xtb_out}")
+                        return None
+    
     return None
 
 #--------------------------------------- FIND SCALING FACTOR FOR SPLINE MINIMUM -----------------------------------
@@ -275,15 +275,11 @@ def find_min_distance_in_dimer(monomerA_file, monomerB_file, dimer_file):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract and analyze energy values for each system.")
     parser.add_argument("method_name", nargs="+", type=str, help="Method name(s) (e.g., ref, g-xtb, etc.)")
-    parser.add_argument("-nosub", action="store_true", help="Disable subfolder usage (use energy directly in folder).")
     args = parser.parse_args()
 
     # A dictionary to hold results for each method independently
     method_results = {}
     method_scaled_distances = {}  # Dictionary to store scaled distances for each method
-
-    # Determine whether to use subfolders or not
-    use_subfolder = not args.nosub  # If -nosub is provided, we disable subfolder use
 
     # Process each method name passed in args.method_name
     for method in args.method_name:
@@ -293,7 +289,7 @@ if __name__ == "__main__":
 
         if method == "ref":
             # Handle the "ref" method separately
-            reference_data, folder_data = find_reference_minimum(res_file=".res", method_name="ref", use_subfolder=use_subfolder)
+            reference_data, folder_data = find_reference_minimum(res_file=".res", method_name="ref")
 
             # Now correctly populate the method_results with reference data
             for system_id, data in reference_data.items():  # 'data' contains list of (scaling_factor, energy) tuples
@@ -304,7 +300,7 @@ if __name__ == "__main__":
                         method_results[method][system_id].append((scaling_factor, energy))
         else:
             # Handle other methods, including "g-xtb"
-            reference_data, folder_data = find_reference_minimum(res_file=".res", method_name=method, use_subfolder=use_subfolder)
+            reference_data, folder_data = find_reference_minimum(res_file=".res", method_name=method)
 
             # Now correctly populate the method_results with extracted data
             for system_id, data in reference_data.items():  # 'data' contains (scaling_factor, energy) tuples
@@ -338,12 +334,15 @@ if __name__ == "__main__":
 # Output the results based on the number of methods provided
 if len(args.method_name) == 1:
     # For a single method, print system_id and the scaled distance for that method
+    #print("system_id", f"scaled_dist(for {args.method_name[0]})")  # Print header
     for system_id in method_scaled_distances[args.method_name[0]].keys():
         scaled_dist = method_scaled_distances[args.method_name[0]].get(system_id, "N/A")  # Get distance or "N/A"
         print(system_id, f"{scaled_dist:.3f}")  # Print system_id and scaled distance with 3 decimal places
 
 else:
     # For multiple methods, print only the scaled distances, without system_id
+    #print("scaled_dist(for", ")".join(args.method_name) + ")")  # Print header for multiple methods
+    # We assume that all methods have the same systems (i.e., same system_id keys)
     system_ids = list(method_scaled_distances[args.method_name[0]].keys())  # Get list of system_ids
 
     for system_id in system_ids:
@@ -351,4 +350,3 @@ else:
             scaled_dist = method_scaled_distances[method].get(system_id, "N/A")  # Get distance or "N/A"
             print(f"{scaled_dist:.3f}", end=" ")  # Print the scaled distance for the current method
         print()  # Move to the next line after printing distances for all methods
-
