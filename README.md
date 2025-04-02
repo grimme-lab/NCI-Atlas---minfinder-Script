@@ -23,7 +23,7 @@ Descripton of the script and its functionality:
       If 'ref' is provided as the method, the script extracts reference minimum values from the ".res" file.
       Otherwise, it processes the method-specific directories that should lie as subdirectories in each system folder.
       If the "-nosub" flag is given, the script does not look for subdirectories but just the energy files in the system folders.
-      The script can ready 'energy' files and 'orca.out' files.
+      The script can read 'energy', 'orca.out' and 'xtb.out' files.
       If you want to reduce the amount of systems to evalaute, make a reduced version of the ".res" file. (Make sure to backup your .res file)
 
     Options:
